@@ -63,8 +63,8 @@ def sms_sender(sms_text: str) -> str:
 
     message = client.messages.create(
         body=sms_text,
-        from_=os.getenv('TWILIO_PHONE'),
-        to=os.getenv('SUBSCRIBERS')
+        from_=os.getenv('NUMBER_FROM'),
+        to=os.getenv('NUMBER_TO')
     )
     return message.sid
 
