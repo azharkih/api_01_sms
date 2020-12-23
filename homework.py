@@ -1,12 +1,27 @@
+import logging
 import os
 import time
+from json import JSONDecodeError
 from typing import Union
 
 import requests
 from dotenv import load_dotenv
 from twilio.rest import Client
 
+logging.basicConfig(level=logging.DEBUG, filename='sms.log',
+                    format='%(asctime)s %(name)s %(levelname)s:%(message)s')
+logger = logging.getLogger(__name__)
+
 load_dotenv()
+NUMBER_FROM = os.getenv('NUMBER_FROM')
+NUMBER_TO = os.getenv('NUMBER_TO')
+TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
+TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
+
+VK_ACCESS_TOKEN = os.getenv('VK_ACCESS_TOKEN')
+VK_API_VERSION = '5.92'
+
+client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
 
 
 def _get_base_user_info(user_id: Union[str, int]) -> dict:
@@ -18,14 +33,23 @@ def _get_base_user_info(user_id: Union[str, int]) -> dict:
         имена.
     """
     data = {
-        'v': '5.92',
-        'access_token': os.getenv('VK_ACCESS_TOKEN'),
+        'v': VK_API_VERSION,
+        'access_token': VK_ACCESS_TOKEN,
         'user_ids': user_id,
         'fields': 'online'
     }
-    user_info = requests.post('https://api.vk.com/method/users.get',
-                              params=data)
-    return user_info.json().get('response')[0]
+    try:
+        user_info = requests.post('https://api.vk.com/method/users.get',
+                                  params=data).json().get('response')[0]
+    except JSONDecodeError:
+        logger.error('Сервис не доступен')
+        print('Сервис не доступен')
+        exit()
+    except TypeError:
+        logger.error('Ошибочный запрос')
+        print('Ошибочный запрос')
+        exit()
+    return user_info
 
 
 def get_status(user_id: Union[str, int]) -> str:
@@ -58,13 +82,10 @@ def sms_sender(sms_text: str) -> str:
     sms_text: str
         Текст сообщения.
     """
-    client = Client(os.getenv('TWILIO_ACCOUNT_SID'),
-                    os.getenv('TWILIO_AUTH_TOKEN'))
-
     message = client.messages.create(
         body=sms_text,
-        from_=os.getenv('NUMBER_FROM'),
-        to=os.getenv('NUMBER_TO')
+        from_=NUMBER_FROM,
+        to=NUMBER_TO
     )
     return message.sid
 
